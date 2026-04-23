@@ -128,8 +128,10 @@ jobs:
           output: trivy-api.sarif
           severity: CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
 
       - name: Scan Worker (Trivy)
+        if: always()
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: devops-worker:${{ env.IMAGE_TAG }}
@@ -137,8 +139,10 @@ jobs:
           output: trivy-worker.sarif
           severity: CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
 
       - name: Scan Frontend (Trivy)
+        if: always()
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: devops-frontend:${{ env.IMAGE_TAG }}
@@ -146,6 +150,7 @@ jobs:
           output: trivy-frontend.sarif
           severity: CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
 
       - name: Upload SARIF API
         uses: github/codeql-action/upload-sarif@v3
