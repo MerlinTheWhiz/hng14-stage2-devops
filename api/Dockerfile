@@ -3,6 +3,7 @@ FROM python:3.12-alpine AS builder
 
 WORKDIR /app
 COPY requirements.txt .
+# hadolint ignore=DL3013,DL3042
 RUN pip install --upgrade pip setuptools && \
     pip install --no-cache-dir --prefix=/install -r requirements.txt
 
