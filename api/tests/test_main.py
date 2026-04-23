@@ -1,13 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+from api.main import app
 from unittest.mock import patch
 
 client = TestClient(app)
 
 @pytest.fixture
 def mock_redis():
-    with patch("main.r") as mock:
+    with patch("app.main.r") as mock:
         yield mock
 
 def test_create_job(mock_redis):
