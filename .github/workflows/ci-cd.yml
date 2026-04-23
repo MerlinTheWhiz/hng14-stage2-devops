@@ -116,9 +116,9 @@ jobs:
 
       - name: Build images for scanning (CI-safe)
         run: |
-          docker build -t devops-api:${IMAGE_TAG} ./api
-          docker build -t devops-worker:${IMAGE_TAG} ./worker
-          docker build -t devops-frontend:${IMAGE_TAG} ./frontend
+          docker build --pull -t devops-api:${IMAGE_TAG} ./api
+          docker build --pull -t devops-worker:${IMAGE_TAG} ./worker
+          docker build --pull -t devops-frontend:${IMAGE_TAG} ./frontend
       - name: Show CVEs (table) for debugging
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
