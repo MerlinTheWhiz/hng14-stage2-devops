@@ -11,7 +11,7 @@ FROM python:3.11-alpine
 WORKDIR /app
 
 # Install curl for healthcheck
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl=8.14.1-r2
 
 # Copy installed dependencies
 COPY --from=builder /install /usr/local
