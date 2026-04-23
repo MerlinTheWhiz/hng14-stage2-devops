@@ -119,50 +119,51 @@ jobs:
           docker build --pull -t devops-api:${IMAGE_TAG} ./api
           docker build --pull -t devops-worker:${IMAGE_TAG} ./worker
           docker build --pull -t devops-frontend:${IMAGE_TAG} ./frontend
-      - name: Show CVEs (table) for debugging
-        run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest image --severity CRITICAL --ignore-unfixed \
-            --format table devops-api:${IMAGE_TAG} || true
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest image --severity CRITICAL --ignore-unfixed \
-            --format table devops-worker:${IMAGE_TAG} || true
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest image --severity CRITICAL --ignore-unfixed \
-            --format table devops-frontend:${IMAGE_TAG} || true
 
+      - name: Pull Trivy image
+        run: docker pull aquasec/trivy:latest
 
       - name: Scan API (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: devops-api:${{ env.IMAGE_TAG }}
-          format: sarif
-          output: trivy-api.sarif
-          severity: CRITICAL
-          exit-code: '1'
-          ignore-unfixed: true
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            aquasec/trivy:latest image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --format sarif \
+              --output "$GITHUB_WORKSPACE/trivy-api.sarif" \
+              --exit-code 1 \
+              devops-api:${IMAGE_TAG}
 
       - name: Scan Worker (Trivy)
         if: always()
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: devops-worker:${{ env.IMAGE_TAG }}
-          format: sarif
-          output: trivy-worker.sarif
-          severity: CRITICAL
-          exit-code: '1'
-          ignore-unfixed: true
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            aquasec/trivy:latest image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --format sarif \
+              --output "$GITHUB_WORKSPACE/trivy-worker.sarif" \
+              --exit-code 1 \
+              devops-worker:${IMAGE_TAG}
 
       - name: Scan Frontend (Trivy)
         if: always()
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: devops-frontend:${{ env.IMAGE_TAG }}
-          format: sarif
-          output: trivy-frontend.sarif
-          severity: CRITICAL
-          exit-code: '1'
-          ignore-unfixed: true
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            aquasec/trivy:latest image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --format sarif \
+              --output "$GITHUB_WORKSPACE/trivy-frontend.sarif" \
+              --exit-code 1 \
+              devops-frontend:${IMAGE_TAG}
+
 
       - name: Upload SARIF API
         uses: github/codeql-action/upload-sarif@v3
