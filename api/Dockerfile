@@ -12,9 +12,10 @@ FROM python:3.12-alpine
 
 WORKDIR /app
 
-# Install curl for healthcheck
-# hadolint ignore=DL3018
-RUN apk add --no-cache curl
+# Install curl for healthcheck and upgrade pip/setuptools to patch CRITICAL CVEs
+# hadolint ignore=DL3018,DL3013,DL3042
+RUN apk add --no-cache curl && \
+    pip install --upgrade pip setuptools
 
 # Copy installed dependencies
 COPY --from=builder /install /usr/local

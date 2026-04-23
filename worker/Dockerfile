@@ -12,6 +12,10 @@ FROM python:3.12-alpine
 
 WORKDIR /app
 
+# Upgrade pip/setuptools in runtime stage to patch CRITICAL CVEs
+# hadolint ignore=DL3013,DL3042
+RUN pip install --upgrade pip setuptools
+
 # Copy installed dependencies
 COPY --from=builder /install /usr/local
 

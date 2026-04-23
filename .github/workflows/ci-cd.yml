@@ -119,6 +119,18 @@ jobs:
           docker build -t devops-api:${IMAGE_TAG} ./api
           docker build -t devops-worker:${IMAGE_TAG} ./worker
           docker build -t devops-frontend:${IMAGE_TAG} ./frontend
+      - name: Show CVEs (table) for debugging
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --severity CRITICAL --ignore-unfixed \
+            --format table devops-api:${IMAGE_TAG} || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --severity CRITICAL --ignore-unfixed \
+            --format table devops-worker:${IMAGE_TAG} || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --severity CRITICAL --ignore-unfixed \
+            --format table devops-frontend:${IMAGE_TAG} || true
+
 
       - name: Scan API (Trivy)
         uses: aquasecurity/trivy-action@master
