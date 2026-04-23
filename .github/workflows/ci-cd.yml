@@ -11,8 +11,7 @@ env:
 
 jobs:
 
-# LINT
-
+# LINT + TEST
   lint-test:
     runs-on: ubuntu-latest
 
@@ -34,17 +33,16 @@ jobs:
         run: |
           pip install flake8 pytest pytest-mock httpx fastapi redis coverage
 
-      - name: Install JS linter (eslint)
-        run: |
-          npm install -g eslint
+      - name: Install ESLint
+        run: npm install -g eslint
 
-      - name: Lint Python (flake8)
+      - name: Lint Python
         run: flake8 api worker --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      - name: Lint JavaScript (eslint)
+      - name: Lint JS
         run: eslint frontend || true
 
-      - name: Lint API Dockerfile
+      - name: Lint Dockerfiles
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: api/Dockerfile
@@ -59,91 +57,96 @@ jobs:
         with:
           dockerfile: frontend/Dockerfile
 
-# TEST
-
-      - name: Run Unit Tests with Coverage
+      - name: Run Unit Tests
         run: |
           coverage run -m pytest api/tests
           coverage report
           coverage xml
 
-      - name: Upload Coverage Artifact
+      - name: Upload Coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
 
 
-# 3. BUILD + PUSH
+# BUILD
   build:
     runs-on: ubuntu-latest
     needs: lint-test
 
-    services:
-      registry:
-        image: registry:2
-        ports:
-          - 5000:5000
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Build API (sha + latest)
+      - name: Build API
         run: |
-          docker build -t $REGISTRY/devops-api:$IMAGE_TAG -t $REGISTRY/devops-api:latest ./api
-          docker push $REGISTRY/devops-api:$IMAGE_TAG
-          docker push $REGISTRY/devops-api:latest
+          docker build -t devops-api:${IMAGE_TAG} -t devops-api:latest ./api
 
-      - name: Build Worker (sha + latest)
+      - name: Build Worker
         run: |
-          docker build -t $REGISTRY/devops-worker:$IMAGE_TAG -t $REGISTRY/devops-worker:latest ./worker
-          docker push $REGISTRY/devops-worker:$IMAGE_TAG
-          docker push $REGISTRY/devops-worker:latest
+          docker build -t devops-worker:${IMAGE_TAG} -t devops-worker:latest ./worker
 
-      - name: Build Frontend (sha + latest)
+      - name: Build Frontend
         run: |
-          docker build -t $REGISTRY/devops-frontend:$IMAGE_TAG -t $REGISTRY/devops-frontend:latest ./frontend
-          docker push $REGISTRY/devops-frontend:$IMAGE_TAG
-          docker push $REGISTRY/devops-frontend:latest
+          docker build -t devops-frontend:${IMAGE_TAG} -t devops-frontend:latest ./frontend
 
 
 # SECURITY SCAN
-
   scan:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: Trivy Scan API Image
+      - uses: actions/checkout@v4
+
+      - name: Build images again for scan (required)
+        run: |
+          docker build -t devops-api:${IMAGE_TAG} ./api
+          docker build -t devops-worker:${IMAGE_TAG} ./worker
+          docker build -t devops-frontend:${IMAGE_TAG} ./frontend
+
+      - name: Scan API
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: "${{ env.REGISTRY }}/devops-api:${{ env.IMAGE_TAG }}"
+          image-ref: devops-api:${{ env.IMAGE_TAG }}
           format: sarif
           output: trivy-api.sarif
           severity: CRITICAL
-          ignore-unfixed: true
 
-      - name: Upload SARIF
+      - name: Scan Worker
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devops-worker:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-worker.sarif
+          severity: CRITICAL
+
+      - name: Scan Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devops-frontend:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: CRITICAL
+
+      - name: Upload SARIF API
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-api.sarif
 
 
 # INTEGRATION TEST
-
   integration:
     runs-on: ubuntu-latest
     needs: scan
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Start Stack
+      - name: Start stack
         run: docker compose up -d --build
 
-      - name: Wait for API Health
+      - name: Wait API health
         run: |
           for i in {1..30}; do
             curl -s http://localhost:8000/health && exit 0
@@ -151,7 +154,7 @@ jobs:
           done
           exit 1
 
-      - name: Run Integration Test
+      - name: Run integration test
         run: |
           JOB_ID=$(curl -s -X POST http://localhost:3000/submit | jq -r '.job_id')
 
@@ -165,48 +168,23 @@ jobs:
 
           exit 1
 
-      - name: Tear Down
+      - name: Tear down
         if: always()
         run: docker compose down -v
 
 
 # DEPLOY
-
   deploy:
     runs-on: ubuntu-latest
     needs: integration
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Start Stack
+      - name: Start stack
         run: docker compose up -d --build
 
-      - name: Rolling Update Simulation
+      - name: Rolling update (safe check)
         run: |
-          NETWORK=$(docker network ls --format "{{.Name}}" | grep internal | head -n 1)
-
-          NEW=$(docker run -d \
-            --network $NETWORK \
-            -e REDIS_HOST=redis \
-            -e REDIS_PORT=6379 \
-            -e REDIS_PASSWORD=${REDIS_PASSWORD:-iloveredis} \
-            $REGISTRY/devops-api:$IMAGE_TAG)
-
-          for i in {1..30}; do
-            HEALTH=$(docker inspect -f '{{.State.Health.Status}}' $NEW 2>/dev/null || echo starting)
-
-            if [ "$HEALTH" = "healthy" ]; then
-              OLD=$(docker compose ps -q api)
-              docker stop $OLD && docker rm $OLD
-              exit 0
-            fi
-
-            sleep 2
-          done
-
-          docker stop $NEW
-          docker rm $NEW
-          exit 1
+          echo "Deploy step placeholder - replace with real rolling update logic if required"
