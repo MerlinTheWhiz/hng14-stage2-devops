@@ -1,12 +1,13 @@
 # Build stage
-FROM python:3.11-alpine AS builder
+FROM python:3.12-alpine AS builder
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --upgrade pip setuptools && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Run stage
-FROM python:3.11-alpine
+FROM python:3.12-alpine
 
 WORKDIR /app
 
