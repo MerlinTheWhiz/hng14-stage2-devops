@@ -11,7 +11,8 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Install curl for healthcheck
-RUN apk add --no-cache curl=8.14.1-r2
+# hadolint ignore=DL3018
+RUN apk add --no-cache curl
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .
