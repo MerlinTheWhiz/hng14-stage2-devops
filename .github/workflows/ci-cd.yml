@@ -123,6 +123,16 @@ jobs:
       - name: Pull Trivy image
         run: docker pull aquasec/trivy:latest
 
+      - name: Debug API CVEs
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --format table \
+              devops-api:${IMAGE_TAG} || true
+
       - name: Scan API (Trivy)
         run: |
           docker run --rm \
