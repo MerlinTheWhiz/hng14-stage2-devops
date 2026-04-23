@@ -34,7 +34,7 @@ jobs:
           pip install flake8 pytest pytest-mock httpx fastapi redis coverage
 
       - name: Install ESLint
-        run: npm install -g eslint @eslint/js
+        run: npm install -g eslint
 
       - name: Lint Python
         run: flake8 api worker --count --select=E9,F63,F7,F82 --show-source --statistics

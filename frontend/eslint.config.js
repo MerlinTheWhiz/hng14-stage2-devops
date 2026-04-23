@@ -1,8 +1,6 @@
-import js from "@eslint/js";
-
-export default [
+// ESLint v9 flat config — CommonJS, no external imports required
+module.exports = [
   {
-    ...js.configs.recommended,
     files: ["**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
@@ -16,6 +14,11 @@ export default [
         process: "readonly",
         console: "readonly",
       },
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": "warn",
+      "no-console": "off",
     },
   },
 ];
